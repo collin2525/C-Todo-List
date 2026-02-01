@@ -1,5 +1,5 @@
 #include<stdio.h>
-#include <string.h>
+#include<string.h>
 
 #define MAX_TASKS 100
 #define MAX_LENGTH 100
@@ -7,18 +7,22 @@
 char tasks[MAX_TASKS][MAX_LENGTH];
 int task_count = 0;
 
+
 void add_task(void);
 void view_tasks(void);
 void delete_task(void);
+void save_tasks(void);
+void load_tasks(void);
 
 int main(void){
-    printf("Hello\n");
+    printf("Loading tasks.\n");
+    load_tasks();
     fflush(stdout);
     while(1){
         printf("\n1) Add task\n");
         printf("2) View tasks\n");
         printf("3) Delete task\n");
-        printf("4) Quit\n");
+        printf("4) Save and Quit\n");
         printf("> ");
 
         int choice;
@@ -30,7 +34,7 @@ int main(void){
         case 1: add_task(); break;
         case 2: view_tasks(); break;
         case 3: delete_task(); break;
-        case 4: return 0;
+        case 4: save_tasks(); return 0;
         
         default: printf("Invalid choice\n");
         }
@@ -78,4 +82,38 @@ void delete_task() {
     }
 
     task_count--;
+}
+
+void save_tasks() {
+    FILE *file = fopen("tasks.txt", "w");
+
+    if (file == NULL){
+        printf("Failed to open file for writing.\n");
+        return;
+    }
+    for (int i = 0; i < task_count; i++){
+        fprintf(file, "%s\n", tasks[i]);
+    }
+
+    fclose(file);
+    printf("Tasks saved.\n");
+}
+
+void load_tasks(){
+    FILE *file = fopen("tasks.txt", "r");
+
+    if (file == NULL) {
+        return;
+    }
+
+    while (fgets(tasks[task_count], MAX_LENGTH, file)){
+        tasks[task_count][strcspn(tasks[task_count], "\n")] = '\0';
+        task_count++;
+
+        if (task_count >= MAX_TASKS){
+            break;
+        }
+    }
+
+    fclose(file);
 }
