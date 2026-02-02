@@ -68,3 +68,33 @@ bool string_equals_cstr(const String *s1, const char *cstr) {
     }
     return (memcmp(s1->data, cstr, s1->length) == 0);
 }
+
+bool string_contains(const String *s, const String *substr) {
+    if (substr->length == 0 || substr->length > s->length) {
+        return false;
+    }
+    for (size_t i = 0; i <= s->length - substr->length; i++) {
+        if (memcmp(s->data + i, substr->data, substr->length) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void add_string_to_array(StringArray *arr, String s) {
+    arr->items = (String *)realloc(arr->items, sizeof(String) * (arr->count + 1));
+    arr->items[arr->count] = s;
+    arr->count++;
+}
+
+void remove_string_from_array(StringArray *arr, size_t index) {
+    if (index >= arr->count) {
+        return;
+    }
+    string_free(&arr->items[index]);
+    for (size_t i = index; i < arr->count - 1; i++) {
+        arr->items[i] = arr->items[i + 1];
+    }
+    arr->count--;
+    arr->items = (String *)realloc(arr->items, sizeof(String) * arr->count);
+}

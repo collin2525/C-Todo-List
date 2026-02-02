@@ -8,16 +8,16 @@
 #define MAX_TASKS 100
 #define MAX_LENGTH 256
 StringArray tasks;
-int task_count = 0;
 
 void run_command(String command);
 void print_help(void);
 void add_task(String task);
-void view_tasks(void);
+void view_tasks(StringArray tasks);
 void delete_task(String task);
 void save_tasks(void);
 void load_tasks(void);
 int find_task(String task);
+StringArray find_tasts_by_content(String content);
 void clear_tasks(void);
 
 int main(void){
@@ -64,7 +64,8 @@ void run_command(String command){
             add_task(parts.items[1]);
         }
     } else if (string_equals_cstr(&parts.items[0], "view")){
-        view_tasks();
+        printf(tasks.count == 0 ? "No Tasks 0.\n" : "Tasks:\n");
+        view_tasks(tasks);
     } else if (string_equals_cstr(&parts.items[0], "delete")){
         if (parts.count < 2){
             printf("Usage: delete:[task here]\n");
@@ -77,7 +78,7 @@ void run_command(String command){
         if (parts.count < 2){
             printf("Usage: find:[part task name here]\n");
         } else {
-            find_task(parts.items[1]);
+            view_tasks(find_tasts_by_content(parts.items[1]));
         }
     } else if (string_equals_cstr(&parts.items[0], "clear")){
         clear_tasks();
@@ -106,22 +107,21 @@ void print_help() {
 }
 
 void add_task(String task) {
-    if (task_count >= MAX_TASKS){
+    if (tasks.count >= MAX_TASKS){
         printf("Task List Full!\n");
         return;
     }
     // Duplicate the string to store
-    tasks.items[task_count] = string_create(task.data);
-    task_count++;
+    add_string_to_array(&tasks, string_create(task.data));
 }
 
-void view_tasks() {
-    if (task_count == 0){
+void view_tasks(StringArray tasks) {
+    if (tasks.count == 0){
         printf("No Tasks.\n");
         return;
     }
 
-    for (int i = 0; i < task_count; i++) {
+    for (int i = 0; i < tasks.count; i++) {
         printf("%d. %s\n", i + 1, tasks.items[i].data);
     }
 }
@@ -132,12 +132,11 @@ void delete_task(String task) {
         return;
     }
 
-    for (int i = index; i < task_count - 1; i++) {
-        tasks.items[i] = tasks.items[i + 1];
-    }
+    remove_string_from_array(&tasks, index);
+    printf("Task deleted: %s\n", task.data);
 
-    string_free(&tasks.items[task_count - 1]);
-    task_count--;
+    string_free(&tasks.items[tasks.count - 1]);
+    tasks.count--;
 }
 
 void save_tasks() {
@@ -147,7 +146,7 @@ void save_tasks() {
         printf("Failed to open file for writing.\n");
         return;
     }
-    for (int i = 0; i < task_count; i++){
+    for (int i = 0; i < tasks.count; i++){
         fprintf(file, "%s\n", tasks.items[i].data);
     }
 
@@ -158,22 +157,26 @@ void save_tasks() {
 void load_tasks(){
     FILE *file = fopen("tasks.txt", "r");
     if (file == NULL) {
+        printf("No tasks.txt file found.\n");
         return;
     }
     char buffer[MAX_LENGTH];
     while (fgets(buffer, MAX_LENGTH, file)){
         buffer[strcspn(buffer, "\n")] = '\0';
-        tasks.items[task_count] = string_create(buffer);
-        task_count++;
-        if (task_count >= MAX_TASKS){
+        if (strlen(buffer) > 0) {  // Only add non-empty lines
+            add_string_to_array(&tasks, string_create(buffer));
+            printf("Loaded task: %s\n", buffer);
+        }
+        if (tasks.count >= MAX_TASKS){
             break;
         }
     }
     fclose(file);
+    printf("Total tasks loaded: %d\n", tasks.count);
 }
 
 int find_task(String task) {
-    for (int i = 0; i < task_count; i++) {
+    for (int i = 0; i < tasks.count; i++) {
         if (string_equals(&tasks.items[i], &task)) {
             printf("Task found at index %d: %s\n", i + 1, tasks.items[i].data);
             return i;
@@ -183,7 +186,23 @@ int find_task(String task) {
     return -1;
 }
 
+StringArray find_tasts_by_content(String content) {
+    StringArray results;
+    results.count = 0;
+    results.items = NULL;
+
+    for (int i = 0; i < tasks.count; i++) {
+        if (string_contains(&tasks.items[i], &content)) {
+            results.items = (String *)realloc(results.items, sizeof(String) * (results.count + 1));
+            results.items[results.count] = string_create(tasks.items[i].data);
+            results.count++;
+        }
+    }
+
+    return results;
+}
+
 void clear_tasks() {
-    task_count = 0;
+    string_array_free(&tasks);
     printf("All tasks cleared.\n");
 }
