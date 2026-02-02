@@ -117,3 +117,27 @@ void load_tasks(){
 
     fclose(file);
 }
+
+void find_task() {
+    char search_task[MAX_LENGTH];
+    printf("Enter task to find: ");
+    fgets(search_task, MAX_LENGTH, stdin);
+    search_task[strcspn(search_task, "\n")] = 0;
+
+    for (int i = 0; i < task_count; i++) {
+        if (strcmp(tasks[i], search_task) == 0) {
+            printf("Task found at index %d: %s\n", i + 1, tasks[i]);
+            return;
+        }
+    }
+    printf("Task not found.\n");
+}
+
+void clear_tasks() {
+    for (int i = 0; i < task_count; i++)
+    {
+        strcpy(tasks[i], "");
+    }
+    task_count = 0;
+    printf("All tasks cleared.\n");
+}
