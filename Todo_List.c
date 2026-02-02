@@ -1,57 +1,117 @@
-#include<stdio.h>
-#include<string.h>
+#include <stdio.h>
+#include <string.h>
+#include "string.h"
+#include <stdbool.h>
+#include <stdlib.h>
+
 
 #define MAX_TASKS 100
-#define MAX_LENGTH 100
-
-char tasks[MAX_TASKS][MAX_LENGTH];
+#define MAX_LENGTH 256
+StringArray tasks;
 int task_count = 0;
 
-
-void add_task(void);
+void run_command(String command);
+void print_help(void);
+void add_task(String task);
 void view_tasks(void);
-void delete_task(void);
+void delete_task(String task);
 void save_tasks(void);
 void load_tasks(void);
+int find_task(String task);
+void clear_tasks(void);
 
 int main(void){
-    printf("Loading tasks.\n");
+    tasks.items = malloc(sizeof(String) * MAX_TASKS);
+    String welcome = string_create("Welcome to the Todo List Application!");
+    printf("%s\n", welcome.data);
+    print_help();
+    string_free(&welcome);
     load_tasks();
     fflush(stdout);
     while(1){
-        printf("\n1) Add task\n");
-        printf("2) View tasks\n");
-        printf("3) Delete task\n");
-        printf("4) Save and Quit\n");
-        printf("> ");
-
-        int choice;
-        scanf("%d", &choice);
-        getchar(); // consume newline
-
-        switch (choice)
-        {
-        case 1: add_task(); break;
-        case 2: view_tasks(); break;
-        case 3: delete_task(); break;
-        case 4: save_tasks(); return 0;
-        
-        default: printf("Invalid choice\n");
+        char input_buffer[MAX_LENGTH];
+        printf("\n> ");
+        if (fgets(input_buffer, MAX_LENGTH, stdin) == NULL){
+            printf("Error reading input. Exiting.\n");
+            break;
         }
+        input_buffer[strcspn(input_buffer, "\n")] = '\0';
+        String command = string_create(input_buffer);
+        if (string_equals_cstr(&command, "exit")){
+            string_free(&command);
+            printf("Exiting...\n");
+            save_tasks();
+            break;
+        }
+        run_command(command);
+        string_free(&command);
     }
+    clear_tasks();
+    free(tasks.items);
     return 0;
 }
 
-void add_task() {
+void run_command(String command){
+    StringArray parts = string_split(&command, ':');
+    if (parts.count == 0){
+        string_array_free(&parts);
+        return;
+    }
+    if (string_equals_cstr(&parts.items[0], "add")){
+        if (parts.count < 2){
+            printf("Usage: add:[task here]\n");
+        } else {
+            add_task(parts.items[1]);
+        }
+    } else if (string_equals_cstr(&parts.items[0], "view")){
+        view_tasks();
+    } else if (string_equals_cstr(&parts.items[0], "delete")){
+        if (parts.count < 2){
+            printf("Usage: delete:[task here]\n");
+        } else {
+            delete_task(parts.items[1]);
+        }
+    } else if (string_equals_cstr(&parts.items[0], "save")){
+        save_tasks();
+    } else if (string_equals_cstr(&parts.items[0], "find")){
+        if (parts.count < 2){
+            printf("Usage: find:[part task name here]\n");
+        } else {
+            find_task(parts.items[1]);
+        }
+    } else if (string_equals_cstr(&parts.items[0], "clear")){
+        clear_tasks();
+    } else if (string_equals_cstr(&parts.items[0], "help")){
+        print_help();
+    } else if (string_equals_cstr(&parts.items[0], "exit")){
+        printf("Exiting...\n");
+        save_tasks();
+    } else {
+        printf("Unknown command. Type 'help' for a list of commands.\n");
+    }
+    
+    string_array_free(&parts);
+}
+
+void print_help() {
+    printf("Todo List Application Commands:\n");
+    printf("add:[task here]- Add a new task\n");
+    printf("view - View all tasks\n");
+    printf("delete:[task here] - Delete a task\n");
+    printf("save - Save tasks to file\n");
+    printf("find:[part task name here] - Find tasks by its content\n");
+    printf("clear - Clear all tasks\n");
+    printf("help - Show this help message\n");
+    printf("exit - Exit the application\n");
+}
+
+void add_task(String task) {
     if (task_count >= MAX_TASKS){
         printf("Task List Full!\n");
         return;
     }
-
-    printf("Enter task: ");
-    fgets(tasks[task_count], MAX_LENGTH, stdin);
-    tasks[task_count][strcspn(tasks[task_count], "\n")] = 0;
-
+    // Duplicate the string to store
+    tasks.items[task_count] = string_create(task.data);
     task_count++;
 }
 
@@ -62,25 +122,21 @@ void view_tasks() {
     }
 
     for (int i = 0; i < task_count; i++) {
-        printf("%d. %s\n", i + 1, tasks[i]);
+        printf("%d. %s\n", i + 1, tasks.items[i].data);
     }
 }
 
-void delete_task() {
-    int index;
-    printf("Enter task number to delete: ");
-    scanf("%d", &index);
-    getchar();
-
-    if (index < 1 || index > task_count) {
-        printf("Invalid task number.\n");
+void delete_task(String task) {
+    int index = find_task(task);
+    if (index == -1) {
         return;
     }
 
-    for (int i = index - 1; i < task_count - 1; i++) {
-        strcpy(tasks[i], tasks[i + 1]);
+    for (int i = index; i < task_count - 1; i++) {
+        tasks.items[i] = tasks.items[i + 1];
     }
 
+    string_free(&tasks.items[task_count - 1]);
     task_count--;
 }
 
@@ -92,7 +148,7 @@ void save_tasks() {
         return;
     }
     for (int i = 0; i < task_count; i++){
-        fprintf(file, "%s\n", tasks[i]);
+        fprintf(file, "%s\n", tasks.items[i].data);
     }
 
     fclose(file);
@@ -101,43 +157,33 @@ void save_tasks() {
 
 void load_tasks(){
     FILE *file = fopen("tasks.txt", "r");
-
     if (file == NULL) {
         return;
     }
-
-    while (fgets(tasks[task_count], MAX_LENGTH, file)){
-        tasks[task_count][strcspn(tasks[task_count], "\n")] = '\0';
+    char buffer[MAX_LENGTH];
+    while (fgets(buffer, MAX_LENGTH, file)){
+        buffer[strcspn(buffer, "\n")] = '\0';
+        tasks.items[task_count] = string_create(buffer);
         task_count++;
-
         if (task_count >= MAX_TASKS){
             break;
         }
     }
-
     fclose(file);
 }
 
-void find_task() {
-    char search_task[MAX_LENGTH];
-    printf("Enter task to find: ");
-    fgets(search_task, MAX_LENGTH, stdin);
-    search_task[strcspn(search_task, "\n")] = 0;
-
+int find_task(String task) {
     for (int i = 0; i < task_count; i++) {
-        if (strcmp(tasks[i], search_task) == 0) {
-            printf("Task found at index %d: %s\n", i + 1, tasks[i]);
-            return;
+        if (string_equals(&tasks.items[i], &task)) {
+            printf("Task found at index %d: %s\n", i + 1, tasks.items[i].data);
+            return i;
         }
     }
     printf("Task not found.\n");
+    return -1;
 }
 
 void clear_tasks() {
-    for (int i = 0; i < task_count; i++)
-    {
-        strcpy(tasks[i], "");
-    }
     task_count = 0;
     printf("All tasks cleared.\n");
 }
